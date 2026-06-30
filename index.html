@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garis Waktu Lengkap Alkitab - Bagian 1, 2, & 3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Warna Tema Utama (Bagian 1 & 2) */
+            --primary: #cf5e29;
+            --primary-light: #e27645;
+            --secondary: #748c8d;
+            --secondary-light: #9ab4b5;
+            
+            /* Warna Tema Baru (Bagian 3) */
+            --green: #5c8d60;
+            --green-light: #7ca880;
+            --jesus-grey: #8c9294;
+
+            /* Konfigurasi Dasar */
+            --bg-color: #f4f1ea;
+            --text-dark: #2c3e50;
+            --text-muted: #596a7b;
+            --axis-gradient: linear-gradient(90deg, #b84b1b 0%, #e28e40 50%, #eebb66 100%);
+            
+            /* Kalkulasi Sumbu Waktu (Diperluas hingga 120 Masehi) */
+            /* Kita menggunakan angka negatif untuk merepresentasikan Masehi (M) */
+            --max-year: 4100; 
+            --min-year: -120; 
+            --total-years: calc(var(--max-year) - var(--min-year));
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--bg-color) 0%, #e0ddd0 100%);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* --- HEADER & NAVIGASI PINTAR --- */
+        .header {
+            max-width: 1500px;
+            margin: 0 auto 15px auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 15px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid rgba(0,0,0,0.05);
+        }
+
+        .header h1 {
+            color: #2c4c4d;
+            margin: 0;
+            font-size: clamp(24px, 4vw, 32px);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .header p { margin: 5px 0 0 0; color: #555; font-size: 14px; }
+
+        .jump-nav {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .jump-btn {
+            background: rgba(44, 76, 77, 0.1);
+            color: #2c4c4d;
+            border: 1px solid rgba(44, 76, 77, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .jump-btn:hover {
+            background: #2c4c4d;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* --- PEMBUNGKUS GARIS WAKTU --- */
+        .timeline-wrapper {
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            cursor: grab; /* Kursor tangan untuk drag */
+            padding-bottom: 20px;
+            position: relative;
+        }
+        .timeline-wrapper.active { cursor: grabbing; }
+        .timeline-wrapper::-webkit-scrollbar { height: 12px; }
+        .timeline-wrapper::-webkit-scrollbar-track { background: #e0ddd0; border-radius: 6px; }
+        .timeline-wrapper::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 6px; border: 2px solid #e0ddd0; }
+
+        /* KANVAS LEBAR (16.000px agar proporsional untuk 4220 tahun) */
+        .timeline-container {
+            width: 16000px; 
+            height: 950px; 
+            position: relative;
+            margin: 0 40px;
+        }
+
+        /* --- LEGEND / INFO WARNA --- */
+        .legend {
+            position: fixed;
+            left: 20px;
+            top: 130px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            width: 280px;
+            font-size: 11px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0,0,0,0.05);
+            z-index: 1000;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        @media (max-width: 768px) {
+            .legend { display: none; /* Sembunyikan otomatis di HP agar tidak menuhi layar */ }
+            .show-legend-btn { display: none !important; }
+        }
+        .legend.hidden { opacity: 0; transform: translateY(-20px); pointer-events: none; }
+        .legend-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .legend-title { font-weight: 700; font-size: 13px; color: #2c4c4d; }
+        .close-legend { background: none; border: none; font-size: 18px; font-weight: bold; cursor: pointer; color: #999; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; font-weight: 500; }
+        .legend-color { width: 30px; height: 10px; border-radius: 5px; margin-right: 12px; flex-shrink: 0; }
+        
+        /* Tombol Pemicu Legend */
+        .show-legend-btn {
+            position: fixed; left: 20px; top: 130px; background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 999; display: none;
+        }
+
+        /* --- ZONA ERA --- */
+        .era-zone {
+            position: absolute; top: 0; height: 30px; border-left: 2px dashed rgba(44, 76, 77, 0.3); padding-left: 10px; font-size: 12px; font-weight: 700; color: #2c4c4d; white-space: nowrap; border-bottom: 2px dashed rgba(44, 76, 77, 0.15);
+            /* Rumus Posisi: Berdasar SM/Masehi */
+            left: calc((var(--max-year) - var(--start)) / var(--total-years) * 100%);
+            width: calc((var(--start) - var(--end)) / var(--total-years) * 100%);
+        }
+
+        /* --- BILAH UMUR (BARS) --- */
+        .bar {
+            position: absolute;
+            height: 12px;
+            background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
+            border-radius: 6px;
+            box-shadow: 0 3px 6px rgba(207, 94, 41, 0.3);
+            display: flex; align-items: center; transition: transform 0.2s;
+            
+            left: calc((var(--max-year) - var(--start)) / var(--total-years) * 100%);
+            width: calc((var(--start) - var(--end)) / var(--total-years) * 100%);
+            top: calc(50px + (var(--track) * 45px));
+        }
+        .bar:hover { transform: scaleY(1.3); z-index: 50; }
+        
+        /* Modifikasi Warna Bar */
+        .bar.grey { background: linear-gradient(180deg, var(--secondary-light) 0%, var(--secondary) 100%); box-shadow: 0 3px 6px rgba(116, 140, 141, 0.3); }
+        .bar.green { background: linear-gradient(180deg, var(--green-light) 0%, var(--green) 100%); box-shadow: 0 3px 6px rgba(92, 141, 96, 0.3); }
+        .bar.solid-grey { background: var(--jesus-grey); box-shadow: 0 3px 6px rgba(140, 146, 148, 0.4); }
+
+        /* Modifikasi Efek Gradasi Ujung (Ketidakpastian Tahun) */
+        .bar.fade-left { background: linear-gradient(90deg, rgba(116,140,141,0) 0%, var(--secondary) 30%); box-shadow: none; }
+        .bar.fade-right { background: linear-gradient(90deg, var(--primary) 70%, rgba(207,94,41,0) 100%); box-shadow: none; }
+        .bar.fade-both { background: linear-gradient(90deg, rgba(116,140,141,0) 0%, var(--secondary) 30%, var(--secondary) 70%, rgba(116,140,141,0) 100%); box-shadow: none; }
+        .bar.fade-both-orange { background: linear-gradient(90deg, rgba(207,94,41,0) 0%, var(--primary) 25%, var(--primary) 75%, rgba(207,94,41,0) 100%); box-shadow: none; }
+        .bar.green.fade-both { background: linear-gradient(90deg, rgba(92,141,96,0) 0%, var(--green) 25%, var(--green) 75%, rgba(92,141,96,0) 100%); box-shadow: none; }
+        .bar.green.fade-left { background: linear-gradient(90deg, rgba(92,141,96,0) 0%, var(--green) 30%); box-shadow: none; }
+
+        .bar-label {
+            position: absolute; top: -22px; font-size: 13px; font-weight: 600; color: var(--primary); white-space: nowrap; text-shadow: 1px 1px 2px rgba(255,255,255,1);
+        }
+        .bar.grey .bar-label { color: var(--secondary); filter: brightness(0.8); }
+        .bar.green .bar-label { color: var(--green); filter: brightness(0.85); }
+        .bar.solid-grey .bar-label { color: #444; }
+
+        /* --- PERISTIWA (EVENTS) --- */
+        .event {
+            position: absolute; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); width: 180px; z-index: 5;
+            left: calc((var(--max-year) - var(--year)) / var(--total-years) * 100%);
+            bottom: calc(90px + (var(--level) * 85px)); /* Staggering Event */
+        }
+        .event-dot { width: 14px; height: 14px; background: var(--primary); border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2); position: relative; z-index: 2; }
+        .event-line { width: 2px; background: rgba(116, 140, 141, 0.4); position: absolute; left: 50%; transform: translateX(-50%); top: 14px; height: calc(815px - calc(90px + (var(--level) * 85px))); z-index: -1; }
+        .event-year { font-weight: 700; font-size: 14px; color: #2c4c4d; margin-top: 5px; }
+        .event-desc { font-size: 11px; text-align: center; line-height: 1.3; font-weight: 500; color: #444; }
+        .event-desc small { display: block; color: var(--primary); font-weight: 600; margin-top: 2px; }
+
+        .event:hover { z-index: 60; }
+        .event:hover .event-dot { transform: scale(1.5); background: #ff4757; }
+        .event:hover .event-line { background: #ff4757; width: 3px; }
+
+        /* --- KUASA DUNIA --- */
+        .world-power-container {
+            position: absolute; bottom: 45px; left: 0; width: 100%; height: 30px; display: flex; align-items: center;
+        }
+        .world-power {
+            position: absolute; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; box-shadow: inset 0 -2px 5px rgba(0,0,0,0.2);
+            left: calc((var(--max-year) - var(--start)) / var(--total-years) * 100%);
+            width: calc((var(--start) - var(--end)) / var(--total-years) * 100%);
+        }
+        .power-mesir { background-color: #8c7647; }
+        .power-asiria { background-color: #2c3e50; }
+        .power-babilon { background-color: #b84b1b; }
+        .power-media-persia { background-color: #2980b9; }
+        .power-yunani { background: linear-gradient(90deg, #4a6984 80%, #c04e3c 100%); } /* Gradasi transisi ke Roma */
+        .power-roma { background-color: #c04e3c; }
+
+        /* --- SUMBU TAHUN --- */
+        .axis {
+            position: absolute; bottom: 5px; left: 0; width: 100%; height: 40px; background: var(--axis-gradient); border-radius: 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 13px; font-weight: 600; padding: 0 10px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+        }
+        .axis span { position: relative; }
+        .axis span::before { content: ''; position: absolute; top: -10px; left: 50%; width: 2px; height: 8px; background: #fff; }
+        
+        /* Khusus marker tahun Masehi (CE) */
+        .axis-marker-m { font-weight: 700; color: #fff; text-shadow: 1px 1px 2px #000; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1>Garis Waktu Lengkap Alkitab</h1>
+            <p>Bagian 1, 2 & 3: Penciptaan hingga Selesainya Penulisan Alkitab (4100 SM - 100 M)</p>
+        </div>
+        <div class="jump-nav">
+            <button class="jump-btn" onclick="scrollToYear(4026)">Adam & Nuh</button>
+            <button class="jump-btn" onclick="scrollToYear(2018)">Abraham & Musa</button>
+            <button class="jump-btn" onclick="scrollToYear(1100)">Zaman Raja-Raja</button>
+            <button class="jump-btn" onclick="scrollToYear(600)">Penawanan Babilon</button>
+            <button class="jump-btn" style="background:var(--green);color:white;border:none;" onclick="scrollToYear(50)">Zaman Yesus & Rasul</button>
+        </div>
+    </div>
+
+    <!-- Tombol untuk memunculkan Info Warna -->
+    <button class="show-legend-btn" id="showLegendBtn" onclick="toggleLegend(true)">📌 Info Warna</button>
+
+    <!-- LEGEND BOX -->
+    <div class="legend" id="legendBox">
+        <div class="legend-header">
+            <div class="legend-title">Info Garis Waktu</div>
+            <button class="close-legend" onclick="toggleLegend(false)">×</button>
+        </div>
+        <div class="legend-item"><div class="legend-color" style="background: linear-gradient(180deg, var(--primary-light), var(--primary));"></div>Tokoh Utama (PL)</div>
+        <div class="legend-item"><div class="legend-color" style="background: linear-gradient(180deg, var(--secondary-light), var(--secondary));"></div>Tokoh Pendukung (PL)</div>
+        <div class="legend-item"><div class="legend-color" style="background: linear-gradient(180deg, var(--green-light), var(--green));"></div>Tokoh Era Yesus & Pengikutnya</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--jesus-grey);"></div>Masa hidup Yesus</div>
+        <div class="legend-item"><div class="legend-color fade-both-orange"></div>Tahun persis tidak bisa dipastikan</div>
+    </div>
+
+    <div class="timeline-wrapper" id="timelineWrapper">
+        <div class="timeline-container">
+            
+            <!-- ====== ZONA ERA ====== -->
+            <div class="era-zone" style="--start: 1117; --end: 997;">Kerajaan Israel Belum Terbagi</div>
+            <div class="era-zone" style="--start: 997; --end: 607;">Kerajaan Israel Terbagi</div>
+            <div class="era-zone" style="--start: 607; --end: 537;">Penawanan di Babilon</div>
+            <div class="era-zone" style="--start: 537; --end: 400;">Setelah Masa Penawanan</div>
+            <div class="era-zone" style="--start: 75; --end: -100; border-left-color: var(--green); color: var(--green);">Zaman Yesus dan Para Pengikutnya -></div>
+
+            <!-- ====== TOKOH PL (Bagian 1 & 2) ====== -->
+            <div class="bar grey" style="--start: 4026; --end: 3096; --track: 1;"><div class="bar-label">Adam (930 Thn)</div></div>
+            <div class="bar" style="--start: 2970; --end: 2020; --track: 1;"><div class="bar-label">Nuh</div></div>
+            <div class="bar grey" style="--start: 3896; --end: 2984; --track: 2;"><div class="bar-label">Set</div></div>
+            <div class="bar grey" style="--start: 2468; --end: 1868; --track: 2;"><div class="bar-label">Sem</div></div>
+            <div class="bar" style="--start: 1767; --end: 1657; --track: 2;"><div class="bar-label">Yusuf</div></div>
+            <div class="bar" style="--start: 3404; --end: 3039; --track: 3;"><div class="bar-label">Henokh</div></div>
+            <div class="bar" style="--start: 2018; --end: 1843; --track: 3;"><div class="bar-label">Abraham</div></div>
+            <div class="bar grey" style="--start: 1795; --end: 1700; --track: 3;"><div class="bar-label">Ismael</div></div>
+            <div class="bar" style="--start: 1593; --end: 1473; --track: 3;"><div class="bar-label">Musa</div></div>
+            <div class="bar grey" style="--start: 3339; --end: 2370; --track: 4;"><div class="bar-label">Metusalah</div></div>
+            <div class="bar fade-left" style="--start: 1990; --end: 1881; --track: 4;"><div class="bar-label">Sara</div></div>
+            <div class="bar fade-left" style="--start: 1560; --end: 1450; --track: 4;"><div class="bar-label">Yosua</div></div>
+            <div class="bar grey" style="--start: 3152; --end: 2377; --track: 5;"><div class="bar-label">Lamekh</div></div>
+            <div class="bar" style="--start: 1918; --end: 1738; --track: 5;"><div class="bar-label">Ishak</div></div>
+            <div class="bar fade-both" style="--start: 1450; --end: 1117; --track: 5;"><div class="bar-label">Hakim-Hakim</div></div>
+            <div class="bar" style="--start: 1858; --end: 1711; --track: 6;"><div class="bar-label">Yakub & Esau</div></div>
+            <div class="bar fade-both" style="--start: 1150; --end: 1020; --track: 6;"><div class="bar-label">Samuel</div></div>
+            <div class="bar fade-both" style="--start: 1680; --end: 1550; --track: 7;"><div class="bar-label">Ayub</div></div>
+            
+            <div class="bar fade-right" style="--start: 1100; --end: 1007; --track: 7;"><div class="bar-label">Yonatan</div></div>
+            <div class="bar" style="--start: 1107; --end: 1037; --track: 1;"><div class="bar-label">Daud</div></div>
+            <div class="bar fade-both-orange" style="--start: 1055; --end: 995; --track: 2;"><div class="bar-label">Abigail, Natan*</div></div>
+            <div class="bar" style="--start: 1014; --end: 975; --track: 3;"><div class="bar-label">Mefibosyet</div></div>
+            <div class="bar fade-both" style="--start: 977; --end: 936; --track: 5;"><div class="bar-label">Asa</div></div>
+            <div class="bar grey" style="--start: 963; --end: 833; --track: 4;"><div class="bar-label">Yehoyada</div></div>
+            <div class="bar fade-both-orange" style="--start: 920; --end: 890; --track: 6;"><div class="bar-label">Elia, Janda Zarefat*</div></div>
+            <div class="bar" style="--start: 893; --end: 840; --track: 7;"><div class="bar-label">Elisa</div></div>
+            <div class="bar fade-both-orange" style="--start: 855; --end: 835; --track: 8;"><div class="bar-label">Gadis Kecil Israel</div></div>
+            <div class="bar" style="--start: 746; --end: 716; --track: 1;"><div class="bar-label">Hizkia</div></div>
+            <div class="bar grey" style="--start: 716; --end: 661; --track: 2;"><div class="bar-label">Manasye</div></div>
+            <div class="bar" style="--start: 659; --end: 628; --track: 3;"><div class="bar-label">Yosia</div></div>
+            <div class="bar fade-both-orange" style="--start: 625; --end: 535; --track: 4;"><div class="bar-label">Daniel & Teman*</div></div>
+            <div class="bar" style="--start: 496; --end: 470; --track: 5;"><div class="bar-label">Ester</div></div>
+            <div class="bar fade-both-orange" style="--start: 465; --end: 425; --track: 6;"><div class="bar-label">Nehemia</div></div>
+
+            <!-- ====== TOKOH PB (BAGIAN 3) | Angka Negatif = Masehi ====== -->
+            <div class="bar green fade-both" style="--start: 80; --end: -10; --track: 1;"><div class="bar-label">Zakharia</div></div>
+            <div class="bar green fade-both" style="--start: 80; --end: -10; --track: 2;"><div class="bar-label">Elisabet</div></div>
+            <div class="bar green fade-both" style="--start: 35; --end: -50; --track: 3;"><div class="bar-label">Maria (ibu Yesus)</div></div>
+            <div class="bar green fade-both" style="--start: 40; --end: -20; --track: 4;"><div class="bar-label">Yusuf</div></div>
+            <div class="bar green" style="--start: 2; --end: -32; --track: 5;"><div class="bar-label">Yohanes Pembaptis</div></div>
+            
+            <div class="bar solid-grey" style="--start: 2; --end: -33; --track: 6;"><div class="bar-label">Yesus</div></div>
+            
+            <div class="bar green fade-both" style="--start: 10; --end: -65; --track: 7;"><div class="bar-label">Petrus</div></div>
+            <div class="bar green fade-both" style="--start: 10; --end: -70; --track: 8;"><div class="bar-label">Maria Magdalena</div></div>
+            <div class="bar green fade-both" style="--start: -5; --end: -65; --track: 9;"><div class="bar-label">Maria (saudara Lazarus)</div></div>
+            <div class="bar green fade-left" style="--start: -5; --end: -34; --track: 10;"><div class="bar-label">Stefanus</div></div>
+            <div class="bar green fade-both" style="--start: -5; --end: -65; --track: 11;"><div class="bar-label">Paulus (Saul)</div></div>
+            <div class="bar green fade-both" style="--start: 0; --end: -70; --track: 12;"><div class="bar-label">Barnabas</div></div>
+            <div class="bar green fade-both" style="--start: -10; --end: -70; --track: 13;"><div class="bar-label">Markus</div></div>
+            <div class="bar green fade-both" style="--start: -5; --end: -100; --track: 14;"><div class="bar-label">Rasul Yohanes</div></div>
+
+
+            <!-- ====== PERISTIWA (Bagian 1 & 2) ====== -->
+            <div class="event" style="--year: 4026; --level: 0;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">4026 SM</div><div class="event-desc">Adam diciptakan<small>Kej. 2:7</small></div>
+            </div>
+            <div class="event" style="--year: 3404; --level: 1;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">3404 SM</div><div class="event-desc">Kelahiran Henokh</div>
+            </div>
+            <div class="event" style="--year: 2370; --level: 0;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">2370 SM</div><div class="event-desc">Air Bah Turun</div>
+            </div>
+            <div class="event" style="--year: 1943; --level: 0;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">1943 SM</div><div class="event-desc">Perjanjian Abraham Berlaku</div>
+            </div>
+            <div class="event" style="--year: 1513; --level: 1;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">1513 SM</div><div class="event-desc">Eksodus / Laut Merah</div>
+            </div>
+            <div class="event" style="--year: 1027; --level: 0;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">1027 SM</div><div class="event-desc">Bait Salomo Selesai</div>
+            </div>
+            <div class="event" style="--year: 997; --level: 1;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">997 SM</div><div class="event-desc">Israel Terbagi Dua</div>
+            </div>
+            <div class="event" style="--year: 740; --level: 2;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">740 SM</div><div class="event-desc">Asiria Menang</div>
+            </div>
+            <div class="event" style="--year: 607; --level: 3;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">607 SM</div><div class="event-desc">Yerusalem Dihancurkan</div>
+            </div>
+            <div class="event" style="--year: 515; --level: 1;">
+                <div class="event-dot"></div><div class="event-line"></div>
+                <div class="event-year">515 SM</div><div class="event-desc">Bait Selesai Dibangun</div>
+            </div>
+
+            <!-- ====== PERISTIWA PB (BAGIAN 3) | Angka Negatif = Masehi ====== -->
+            <div class="event" style="--year: -33; --level: 0;">
+                <div class="event-dot" style="background:var(--green)"></div><div class="event-line"></div>
+                <div class="event-year">33 M</div><div class="event-desc">Kuasa kudus dicurahkan (Pentakosta)</div>
+            </div>
+            <div class="event" style="--year: -36; --level: 1;">
+                <div class="event-dot" style="background:var(--green)"></div><div class="event-line"></div>
+                <div class="event-year">36 M</div><div class="event-desc">Orang bangsa lain pertama dibaptis</div>
+            </div>
+            <div class="event" style="--year: -41; --level: 2;">
+                <div class="event-dot" style="background:var(--green)"></div><div class="event-line"></div>
+                <div class="event-year">41 M*</div><div class="event-desc">Matius menulis Injil pertama</div>
+            </div>
+            <div class="event" style="--year: -70; --level: 0;">
+                <div class="event-dot" style="background:var(--green)"></div><div class="event-line"></div>
+                <div class="event-year">70 M</div><div class="event-desc">Yerusalem dan baitnya dihancurkan</div>
+            </div>
+            <div class="event" style="--year: -98; --level: 1;">
+                <div class="event-dot" style="background:var(--green)"></div><div class="event-line"></div>
+                <div class="event-year">98 M*</div><div class="event-desc">Alkitab selesai ditulis</div>
+            </div>
+
+
+            <!-- ====== BLOK KUASA DUNIA ====== -->
+            <div class="world-power-container">
+                <div class="world-power power-mesir" style="--start: 4100; --end: 740;">MESIR</div>
+                <div class="world-power power-asiria" style="--start: 740; --end: 607;">ASIRIA</div>
+                <div class="world-power power-babilon" style="--start: 607; --end: 537;">BABILON</div>
+                <div class="world-power power-media-persia" style="--start: 537; --end: 332;">MEDIA-PERSIA</div>
+                <div class="world-power power-yunani" style="--start: 332; --end: 63;">YUNANI</div>
+                <div class="world-power power-roma" style="--start: 63; --end: -120;">ROMA</div>
+            </div>
+
+            <!-- ====== SUMBU TAHUN UTAMA ====== -->
+            <div class="axis">
+                <span>4100 SM</span><span>3900</span><span>3700</span><span>3500</span><span>3300</span><span>3100</span>
+                <span>2900</span><span>2700</span><span>2500</span><span>2300</span><span>2100</span><span>1900</span>
+                <span>1700</span><span>1500</span><span>1300</span><span>1100</span><span>900</span><span>700</span>
+                <span>500</span><span>300</span><span>100</span>
+                
+                <!-- Masa PB -->
+                <span style="color:transparent">0</span><!-- Spacer -->
+                <span class="axis-marker-m" style="transform:translateX(-10px)">1 Masehi</span>
+                <span class="axis-marker-m">50 M</span>
+                <span class="axis-marker-m">100 M</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Logika Menyembunyikan / Menampilkan Legenda
+        function toggleLegend(show) {
+            const legendBox = document.getElementById('legendBox');
+            const showBtn = document.getElementById('showLegendBtn');
+            if (show) {
+                legendBox.classList.remove('hidden');
+                showBtn.style.display = 'none';
+            } else {
+                legendBox.classList.add('hidden');
+                showBtn.style.display = 'block';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => { toggleLegend(false); }, 4000);
+        });
+
+        // Logika Navigasi Pintar (Jump Menu)
+        function scrollToYear(targetYearSM) {
+            const container = document.getElementById('timelineWrapper');
+            const maxYear = 4100;
+            const totalYears = 4220; // 4100 to -120
+            const containerScrollWidth = 16000;
+            
+            // Hitung persentase posisi dari kiri (4100 = 0%)
+            const percentage = (maxYear - targetYearSM) / totalYears;
+            
+            // Pusatkan layar di titik tersebut
+            const targetPixel = (percentage * containerScrollWidth) - (container.clientWidth / 2);
+            
+            container.scrollTo({ left: targetPixel, behavior: 'smooth' });
+        }
+
+        // Fitur Drag-to-Scroll (Geser pakai Mouse)
+        const slider = document.getElementById('timelineWrapper');
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        slider.addEventListener('mousedown', (e) => {
+            isDown = true;
+            slider.classList.add('active');
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        });
+        slider.addEventListener('mouseleave', () => {
+            isDown = false;
+            slider.classList.remove('active');
+        });
+        slider.addEventListener('mouseup', () => {
+            isDown = false;
+            slider.classList.remove('active');
+        });
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 1.5; // Kecepatan geser
+            slider.scrollLeft = scrollLeft - walk;
+        });
+    </script>
+</body>
+</html>
