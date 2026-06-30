@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Garis Waktu Alkitab</title>
+    <title>Garis Waktu Alkitab Dinamis</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --judah: #8e44ad; --israel: #2980b9;
+            --primary: #cf5e29; --judah: #8e44ad; --israel: #2980b9;
             --bg-color: #fdfbf7; --text-dark: #2c3e50;
             --max-year: 4100; --min-year: -120; 
             --total-years: calc(var(--max-year) - var(--min-year));
@@ -42,7 +42,20 @@
         .canvas { width: 17000px; min-height: 100%; position: relative; display: flex; flex-direction: column; }
         .grid-line { position: absolute; top: 0; bottom: 0; width: 1px; border-right: 1px dashed rgba(44, 76, 77, 0.15); z-index: 1; pointer-events: none; }
 
-        /* --- 1. PANEL ATAS (KUASA & ERA) --- */
+        /* --- GARIS PEMINDAI WAKTU (TIME CURSOR) --- */
+        .time-cursor {
+            position: fixed; left: 50%; top: 70px; bottom: 45px; width: 3px;
+            background: rgba(207, 94, 41, 0.5); border-left: 1px dashed rgba(255,255,255,0.8);
+            z-index: 9500; pointer-events: none; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+        }
+        .cursor-label {
+            background: var(--primary); color: white; padding: 6px 15px; border-radius: 20px;
+            font-weight: 800; font-size: 14px; box-shadow: 0 4px 15px rgba(207, 94, 41, 0.4);
+            white-space: nowrap; margin-top: 15px; border: 2px solid white;
+        }
+
+        /* --- PANEL ATAS (KUASA & ERA) --- */
         .sticky-top { position: sticky; top: 0; left: 0; width: 100%; z-index: 900; background: rgba(253, 251, 247, 0.95); backdrop-filter: blur(8px); border-bottom: 2px solid rgba(0,0,0,0.05); box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
         .track-power { height: 35px; width: 100%; position: relative; display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.2); }
         .power-item { position: absolute; height: 100%; display: flex; align-items: center; color: white; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; box-shadow: inset 0 -2px 5px rgba(0,0,0,0.15); }
@@ -52,12 +65,12 @@
         .era-item { position: absolute; height: 100%; display: flex; align-items: center; border-left: 2px dashed rgba(44, 76, 77, 0.4); }
         .era-item span { position: sticky; left: 20px; padding-right: 20px; font-size: 11px; font-weight: 700; color: #2c4c4d; display: inline-block; }
 
-        /* --- 2. LAYER TOKOH (MELAYANG/STICKY SAAT DI-SCROLL KE BAWAH) --- */
+        /* --- LAYER TOKOH (STICKY BAWAH) --- */
         .bars-layer {
             position: sticky; top: 72px; width: 100%; z-index: 800;
             background: rgba(253, 251, 247, 0.85); backdrop-filter: blur(5px);
             border-bottom: 2px solid rgba(0,0,0,0.08); box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-            pointer-events: none; /* Memungkinkan klik tembus ke events di bawahnya jika kosong */
+            pointer-events: none;
         }
 
         .bar-wrapper {
@@ -67,12 +80,16 @@
         .bar-wrapper:hover { transform: scaleY(1.3); z-index: 50; }
         
         .bar-label {
-            position: sticky; left: 20px; font-size: 11.5px; font-weight: 700;
-            padding-bottom: 3px; width: max-content;
+            position: sticky; left: 20px; font-size: 12px; font-weight: 700;
+            padding-bottom: 3px; width: max-content; transition: color 0.2s;
             text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0px 2px 4px rgba(0,0,0,0.2);
         }
-        .bar-line { width: 100%; height: 8px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        .bar-line { width: 100%; height: 8px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: filter 0.2s; }
 
+        /* Efek Active saat discan Time Cursor */
+        .bar-wrapper.scanned .bar-label { color: var(--primary); transform: scale(1.05); transform-origin: left bottom; }
+        .bar-wrapper.scanned .bar-line { filter: brightness(1.2) drop-shadow(0 0 4px var(--primary)); }
+        
         /* Tema Warna Garis Waktu */
         .c-cyan .bar-label { color: #0e6655; } .c-cyan .bar-line { background: linear-gradient(180deg, #1abc9c, #16a085); }
         .c-gold .bar-label { color: #d35400; } .c-gold .bar-line { background: linear-gradient(180deg, #f1c40f, #f39c12); }
@@ -87,9 +104,8 @@
         .fade-both .bar-line { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, currentColor 20%, currentColor 80%, rgba(0,0,0,0) 100%); box-shadow: none; }
         .fade-right .bar-line { background: linear-gradient(90deg, currentColor 70%, rgba(0,0,0,0) 100%); box-shadow: none; }
 
-        /* --- 3. LAYER PERISTIWA (EVENTS) --- */
+        /* --- LAYER PERISTIWA --- */
         .events-layer { position: relative; width: 100%; z-index: 10; margin-top: 20px; }
-
         .event-container { position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: center; }
         .event-container:hover { z-index: 60; }
         
@@ -105,11 +121,10 @@
         .event-year { font-weight: 800; font-size: 13px; color: #b84b1b; margin-bottom: 4px; border-bottom: 1px dashed rgba(0,0,0,0.1); padding-bottom: 2px; width: 100%; text-align: center;}
         .event-desc { font-size: 11px; text-align: center; line-height: 1.5; font-weight: 500; color: #333; margin-bottom: 6px; }
         
-        /* Tokoh Hidup Sezaman */
         .contemporaries { font-size: 10px; background: rgba(44, 76, 77, 0.05); padding: 4px 6px; border-radius: 4px; color: #555; text-align: center; width: 100%; font-weight: 500; border: 1px solid rgba(44, 76, 77, 0.1); line-height: 1.4; }
         .covenant { font-weight: 800; font-style: italic; color: #d35400; background: #fcf3cf; border: 1px solid #f1c40f; padding: 2px 6px; border-radius: 4px; font-size: 11px !important; box-shadow: 0 0 8px rgba(241, 196, 15, 0.4); display: inline-block; margin: 3px 0; }
 
-        /* --- 4. SUMBU MELAYANG BAWAH --- */
+        /* --- SUMBU MELAYANG BAWAH --- */
         .sticky-bottom { position: sticky; bottom: 0; left: 0; width: 100%; z-index: 900; background: linear-gradient(90deg, #b84b1b 0%, #e28e40 50%, #eebb66 100%); height: 45px; display: flex; align-items: center; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); border-top: 1px solid rgba(255,255,255,0.2); }
         .axis-marker { position: absolute; color: white; font-weight: 700; font-size: 12px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
         .axis-marker::before { content: ''; width: 2px; height: 6px; background: white; margin-bottom: 3px; border-radius: 2px; }
@@ -117,8 +132,13 @@
 </head>
 <body>
 
+    <!-- Garis Penunjuk Waktu Dinamis -->
+    <div class="time-cursor" id="timeCursor">
+        <div class="cursor-label" id="cursorLabel">4100 SM</div>
+    </div>
+
     <div class="header">
-        <h1>Garis Waktu Alkitab</h1>
+        <h1>Garis Waktu Alkitab Dinamis</h1>
         <div class="jump-nav">
             <button class="btn-nav" onclick="scrollToYear(4026)">Adam - Nuh</button>
             <button class="btn-nav" onclick="scrollToYear(2018)">Abraham - Hakim</button>
@@ -137,7 +157,7 @@
                 <div class="track-era" id="eraTrack"></div>
             </div>
 
-            <!-- LAYER TOKOH (Akan terus terlihat menempel di atas saat Anda scroll ke bawah) -->
+            <!-- LAYER TOKOH -->
             <div class="bars-layer" id="barsLayer"></div>
 
             <!-- LAYER PERISTIWA -->
@@ -155,7 +175,7 @@
         function getWidth(start, end) { return ((start - end) / TOTAL_YEARS) * 100; }
         function getPixelX(year) { return ((MAX_YEAR - year) / TOTAL_YEARS) * CANVAS_WIDTH; }
 
-        // Data Kuasa Dunia & Era
+        // Data Kuasa & Era
         const powers = [
             { s: 4100, e: 740, name: "MESIR", color: "#8c7647" }, { s: 740, e: 607, name: "ASIRIA", color: "#2c3e50" },
             { s: 607, e: 537, name: "BABILON", color: "#b84b1b" }, { s: 537, e: 332, name: "MEDIA-PERSIA", color: "#2980b9" },
@@ -177,42 +197,40 @@
             let div = document.createElement('div'); div.className = 'era-item'; div.style.left = `${getLeft(e.s)}%`; div.style.width = `${getWidth(e.s, e.e)}%`; let colorStyle = e.color ? `color: ${e.color};` : ''; div.innerHTML = `<span style="${colorStyle}">${e.name}</span>`; eraTrack.appendChild(div);
         });
 
-        // ---------------- DATA TOKOH (BERDASARKAN RISET WOL.JW.ORG) ----------------
+        // ---------------- DATA TOKOH ----------------
         const barsData = [
             { s: 4026, e: 3096, l: "Adam (930 thn)", t: "c-cyan" }, { s: 3896, e: 2984, l: "Set (912 thn)", t: "c-cyan" },
             { s: 3404, e: 3039, l: "Henokh (365 thn)", t: "c-cyan" }, { s: 3339, e: 2370, l: "Metusalah (969 thn)", t: "c-cyan" },
             { s: 3152, e: 2377, l: "Lamekh (777 thn)", t: "c-cyan" }, { s: 2970, e: 2020, l: "Nuh (950 thn)", t: "c-cyan" },
             { s: 2468, e: 1868, l: "Sem (600 thn)", t: "c-cyan" },
-            
             { s: 2018, e: 1843, l: "Abraham (175 thn)", t: "c-gold" }, { s: 1990, e: 1881, l: "Sara (127 thn)", t: "c-gold fade-left" },
             { s: 1918, e: 1738, l: "Ishak (180 thn)", t: "c-gold" }, { s: 1880, e: 1750, l: "Ribka", t: "c-gold fade-both" },
             { s: 1858, e: 1711, l: "Yakub (147 thn)", t: "c-gold" }, { s: 1795, e: 1700, l: "Ismael (137 thn)", t: "c-gold" },
             { s: 1767, e: 1657, l: "Yusuf (110 thn)", t: "c-gold" },
-            
             { s: 1650, e: 1470, l: "Syifra, Pua, Amram, Yokhebed, Miriam", t: "c-red fade-both" },
             { s: 1593, e: 1473, l: "Musa (120 thn)", t: "c-red" }, { s: 1560, e: 1450, l: "Yosua (110 thn)", t: "c-red fade-left" },
             { s: 1550, e: 1430, l: "Kaleb", t: "c-red fade-left" }, { s: 1500, e: 1400, l: "Rahab", t: "c-red fade-left" },
             { s: 1430, e: 1100, l: "Naomi, Rut, Debora, Barak, Gideon, Simson...", t: "c-red fade-both" },
             { s: 1150, e: 1020, l: "Samuel", t: "c-red fade-both" },
-            
             { s: 1107, e: 1037, l: "Daud (70 thn)", t: "c-grey" }, { s: 1100, e: 1007, l: "Yonatan", t: "c-grey fade-right" },
             { s: 1055, e: 995, l: "Abigail, Natan", t: "c-grey fade-both" },
-            
             { s: 920, e: 890, l: "Elia", t: "c-green fade-both" }, { s: 893, e: 840, l: "Elisa", t: "c-green" },
             { s: 778, e: 732, l: "Yesaya", t: "c-green fade-both" }, { s: 647, e: 580, l: "Yeremia", t: "c-green fade-both" },
             { s: 613, e: 591, l: "Yehezkiel", t: "c-green fade-both" }, { s: 625, e: 535, l: "Daniel", t: "c-green fade-both" },
             { s: 465, e: 425, l: "Nehemia & Ezra", t: "c-green fade-both" },
-            
             { s: 997, e: 980, l: "Rehoboam", t: "c-purple" }, { s: 980, e: 978, l: "Abiya", t: "c-purple" }, { s: 978, e: 937, l: "Asa", t: "c-purple" }, { s: 937, e: 913, l: "Yehosyafat", t: "c-purple" }, { s: 913, e: 906, l: "Yehoram", t: "c-purple" }, { s: 898, e: 858, l: "Yehoas", t: "c-purple" }, { s: 858, e: 829, l: "Amazia", t: "c-purple" }, { s: 829, e: 777, l: "Uzzia", t: "c-purple" }, { s: 746, e: 716, l: "Hizkia", t: "c-purple" }, { s: 716, e: 661, l: "Manasye", t: "c-purple" }, { s: 659, e: 628, l: "Yosia", t: "c-purple" }, { s: 617, e: 607, l: "Zedekia", t: "c-purple" },
-            
             { s: 997, e: 976, l: "Yeroboam", t: "c-blue" }, { s: 975, e: 952, l: "Baasya", t: "c-blue" }, { s: 947, e: 940, l: "Omri", t: "c-blue" }, { s: 940, e: 920, l: "Ahab", t: "c-blue" }, { s: 905, e: 876, l: "Yehu", t: "c-blue" }, { s: 844, e: 803, l: "Yeroboam II", t: "c-blue" }, { s: 778, e: 758, l: "Pekah", t: "c-blue" }, { s: 758, e: 740, l: "Hosyea", t: "c-blue" },
-            
             { s: 80, e: -10, l: "Zakharia & Elisabet", t: "c-green fade-both" }, { s: 35, e: -50, l: "Maria (ibu Yesus)", t: "c-green fade-both" }, { s: 40, e: -20, l: "Yusuf (Suami)", t: "c-green fade-both" }, { s: 2, e: -32, l: "Yohanes Pembaptis", t: "c-green" }, { s: 2, e: -33, l: "Yesus (33 thn)", t: "c-jesus" }, { s: 10, e: -65, l: "Petrus", t: "c-green fade-both" }, { s: -5, e: -65, l: "Paulus", t: "c-green fade-both" }, { s: -5, e: -100, l: "Rasul Yohanes", t: "c-green fade-both" }
         ];
 
         const barsLayer = document.getElementById('barsLayer');
 
-        // Render Bars di Panel Sticky
+        // Pre-proses nama dasar agar mesin penghitung umur berjalan ringan
+        barsData.forEach(bar => {
+            bar.baseName = bar.l.split(' (')[0]; 
+        });
+
+        // Render Bars
         barsData.sort((a, b) => b.s - a.s);
         let barTracks = [];
         barsData.forEach(bar => {
@@ -224,22 +242,24 @@
             if (!placed) { bar.track = barTracks.length; barTracks.push([bar]); }
         });
 
-        barsData.forEach(bar => {
+        barsData.forEach((bar, index) => {
             let div = document.createElement('div');
             let fadeClass = bar.f ? ` ${bar.f}` : '';
             div.className = `bar-wrapper ${bar.t}${fadeClass}`;
+            div.id = `bar-wrapper-${index}`; // ID untuk referensi dinamis
             div.style.left = `${getLeft(bar.s)}%`; 
             div.style.width = `${getWidth(bar.s, bar.e)}%`; 
-            div.style.top = `${15 + (bar.track * 26)}px`; // Kompak agar tidak menghabiskan terlalu banyak layar
+            div.style.top = `${15 + (bar.track * 26)}px`;
             
             div.innerHTML = `
-                <span class="bar-label">${bar.l}</span>
+                <span class="bar-label" id="bar-label-${index}">${bar.baseName}</span>
                 <div class="bar-line"></div>
             `;
             barsLayer.appendChild(div);
+            // Simpan referensi ID ke objek bar untuk kemudahan update
+            bar.DOMid = index;
         });
 
-        // Set tinggi panel Sticky Bars
         barsLayer.style.height = `${15 + (barTracks.length * 26) + 15}px`;
 
 
@@ -286,19 +306,17 @@
             if (!placed) { ev.level = eventLevels.length; eventLevels.push([ev]); }
         });
 
-        // Merender Event berserta Sistem Pintar "Tokoh Hidup Sezaman"
         groupedEvents.forEach(ev => {
             let containerDiv = document.createElement('div');
             containerDiv.className = 'event-container';
             containerDiv.style.left = `${getLeft(ev.y)}%`;
-            containerDiv.style.top = `0px`; // Base of eventsLayer
+            containerDiv.style.top = `0px`; 
 
-            let levelY = 20 + (ev.level * 125); // Jarak antar level yang cukup lega untuk teks
+            let levelY = 20 + (ev.level * 125); 
             let dotColor = ev.y < 50 ? 'border-color:#27ae60' : '';
             let displayYear = ev.y < 0 ? Math.abs(ev.y) + " M" : ev.y + " SM";
 
-            // LOGIKA TOKOH SEZAMAN
-            let aliveNames = barsData.filter(b => b.s >= ev.y && b.e <= ev.y).map(b => b.l.split(' (')[0]);
+            let aliveNames = barsData.filter(b => b.s >= ev.y && b.e <= ev.y).map(b => b.baseName);
             let contemporariesHtml = '';
             if (aliveNames.length > 0) {
                 contemporariesHtml = `<div class="contemporaries"><strong>Hidup Saat Ini:</strong><br>${aliveNames.join(', ')}</div>`;
@@ -316,10 +334,8 @@
             eventsLayer.appendChild(containerDiv);
         });
 
-        let totalMaxHeight = (eventLevels.length * 125) + 150;
-        eventsLayer.style.minHeight = `${totalMaxHeight}px`;
+        eventsLayer.style.minHeight = `${(eventLevels.length * 125) + 150}px`;
 
-        // Render Grid & Sumbu
         const gridContainer = document.getElementById('gridContainer');
         for (let y = 4100; y >= -100; y -= 100) { if (y === 0) continue; let div = document.createElement('div'); div.className = 'grid-line'; div.style.left = `${getLeft(y)}%`; gridContainer.appendChild(div); }
 
@@ -329,20 +345,64 @@
             let div = document.createElement('div'); div.className = 'axis-marker'; div.style.left = `${getLeft(y)}%`; let label = y > 0 ? `${y}` : `${Math.abs(y)} M`; if (y === 4100) label += " SM"; div.innerHTML = label; axisTrack.appendChild(div);
         }
 
-        // FUNGSI DRAG KANVAS & NAV JUMP
+        // --- SISTEM PEMINDAI WAKTU & UMUR DINAMIS (TIME CURSOR ENGINE) ---
         const wrapper = document.getElementById('scrollWrapper');
+        const cursorLabel = document.getElementById('cursorLabel');
+
+        function updateDynamicAges() {
+            // Hitung tahun yang saat ini berada persis di tengah layar
+            let centerPixel = wrapper.scrollLeft + (wrapper.clientWidth / 2);
+            let currentYear = MAX_YEAR - ((centerPixel / CANVAS_WIDTH) * TOTAL_YEARS);
+            
+            // Perbarui label tahun di Garis Pemindai
+            let displayYear = Math.round(currentYear);
+            let yearText = displayYear < 0 ? Math.abs(displayYear) + " M" : displayYear + " SM";
+            if (displayYear === 0) yearText = "1 SM"; // Menghindari Tahun 0
+            cursorLabel.innerText = yearText;
+
+            // Pindai semua tokoh, hitung umurnya jika garis mengenai umurnya
+            barsData.forEach(bar => {
+                let wrapperEl = document.getElementById(`bar-wrapper-${bar.DOMid}`);
+                let labelEl = document.getElementById(`bar-label-${bar.DOMid}`);
+                
+                if (currentYear <= bar.s && currentYear >= bar.e) {
+                    // Tokoh sedang hidup di titik ini!
+                    let currentAge = bar.s - currentYear;
+                    if (bar.s > 0 && currentYear < 0) currentAge -= 1; // Penyesuaian tanpa Tahun 0
+                    currentAge = Math.floor(currentAge);
+                    
+                    // Update UI dengan animasi Sorotan (Scanned)
+                    labelEl.innerHTML = `${bar.baseName} <span style="font-size:10px; opacity:0.85;">(Umur: ${currentAge})</span>`;
+                    wrapperEl.classList.add('scanned');
+                } else {
+                    // Di luar batas umur, kembalikan ke nama normal
+                    labelEl.innerHTML = bar.baseName;
+                    wrapperEl.classList.remove('scanned');
+                }
+            });
+        }
+
+        // Panggil fungsi pemindai setiap kali digeser
+        wrapper.addEventListener('scroll', updateDynamicAges);
+
+        // FUNGSI DRAG & JUMP
         let isDown = false, startX, startY, scrollLeft, scrollTop;
 
         function scrollToYear(targetYear) {
             const percentage = (MAX_YEAR - targetYear) / TOTAL_YEARS;
             const targetPixel = (percentage * CANVAS_WIDTH) - (wrapper.clientWidth / 2);
             wrapper.scrollTo({ left: targetPixel, top: 0, behavior: 'smooth' });
+            // Pemindai akan otomatis berjalan karena ini memicu event 'scroll'
         }
 
         wrapper.addEventListener('mousedown', (e) => { isDown = true; wrapper.classList.add('active'); startX = e.pageX - wrapper.offsetLeft; startY = e.pageY - wrapper.offsetTop; scrollLeft = wrapper.scrollLeft; scrollTop = wrapper.scrollTop; });
         wrapper.addEventListener('mouseleave', () => { isDown = false; wrapper.classList.remove('active'); });
         wrapper.addEventListener('mouseup', () => { isDown = false; wrapper.classList.remove('active'); });
         wrapper.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - wrapper.offsetLeft; const y = e.pageY - wrapper.offsetTop; wrapper.scrollLeft = scrollLeft - ((x - startX) * 1.5); wrapper.scrollTop = scrollTop - ((y - startY) * 1.5); });
+
+        // Inisialisasi awal pemindai
+        setTimeout(updateDynamicAges, 100);
+
     </script>
 </body>
 </html>
